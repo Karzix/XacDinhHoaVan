@@ -1,0 +1,6 @@
+@XacDinhHoaVan_HostAddress = http://localhost:5056
+
+GET {{XacDinhHoaVan_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
