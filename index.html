@@ -26,45 +26,45 @@
             const formData = new FormData();
             formData.append('imageFile', imageFile);
 
-            fetch('https://localhost:7146/process-image', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Lỗi khi gửi ảnh đến API.');
-                }
-                return response.text();
-            })
-            .then(base64String => {
-                // Hiển thị ảnh đã xử lý lên thẻ <img>
-                const displayImage = document.getElementById('displayImage');
-                displayImage.src = `data:image/png;base64,${base64String}`;
-            })
-            .catch(error => {
-                console.error('Lỗi:', error);
-            });
+            // fetch('https://localhost:7146/process-image', {
+            //     method: 'POST',
+            //     body: formData
+            // })
+            // .then(response => {
+            //     if (!response.ok) {
+            //         throw new Error('Lỗi khi gửi ảnh đến API.');
+            //     }
+            //     return response.text();
+            // })
+            // .then(base64String => {
+            //     // Hiển thị ảnh đã xử lý lên thẻ <img>
+            //     const displayImage = document.getElementById('displayImage');
+            //     displayImage.src = `data:image/png;base64,${base64String}`;
+            // })
+            // .catch(error => {
+            //     console.error('Lỗi:', error);
+            // });
 
-            fetch('https://localhost:7146/draw-circle', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Lỗi khi gửi ảnh đến API.');
-                }
-                return response.text();
-            })
-            .then(base64String => {
-                // Hiển thị ảnh đã xử lý lên thẻ <img>
-                const displayImage = document.getElementById('red');
-                displayImage.src = `data:image/png;base64,${base64String}`;
-            })
-            .catch(error => {
-                console.error('Lỗi:', error);
-            });
+            // fetch('https://localhost:7146/RemoveBackground', {
+            //     method: 'POST',
+            //     body: formData
+            // })
+            // .then(response => {
+            //     if (!response.ok) {
+            //         throw new Error('Lỗi khi gửi ảnh đến API.');
+            //     }
+            //     return response.text();
+            // })
+            // .then(base64String => {
+            //     // Hiển thị ảnh đã xử lý lên thẻ <img>
+            //     const displayImage = document.getElementById('red');
+            //     displayImage.src = `data:image/png;base64,${base64String}`;
+            // })
+            // .catch(error => {
+            //     console.error('Lỗi:', error);
+            // });
 
-            fetch('https://localhost:7146/check-pattern', {
+            fetch('https://localhost:7146/RemoveBackground', {
                 method: 'POST',
                 body: formData
             })
@@ -72,18 +72,21 @@
                 if (!response.ok) {
                     throw new Error('Lỗi khi gửi ảnh đến API.');
                 }
-                return response.text();
+                return response.json();
             })
             .then(rs => {
                 // Hiển thị ảnh đã xử lý lên thẻ <img>
-                const displayImage = document.getElementById('result');
-                if(rs <900){
-                    displayImage.innerHTML = "không hoa văn";
+                console.log(rs);
+                const displayImage1 = document.getElementById('result');
+                const displayImage2 = document.getElementById('displayImage');
+                if(rs.blackPixelCount <900){
+                    displayImage1.innerHTML = "không hoa văn " + rs.blackPixelCount;
                 }
                 else{
-                    displayImage.innerHTML = "có hoa văn";
+                    displayImage1.innerHTML = "có hoa văn  " + rs.blackPixelCount;
                 }
                 // displayImage.innerHTML = rs;
+                displayImage2.src = `data:image/png;base64,${rs.image}`;
             })
             .catch(error => {
                 console.error('Lỗi:', error);

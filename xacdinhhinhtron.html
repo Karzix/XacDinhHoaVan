@@ -100,8 +100,8 @@
             </div>
 
             <div id="image-result">
-                <img id="displayImage" width="45%">
-                <img id="red" width="45%">
+                <img id="displayImage" width="100%">
+                <!-- <img id="red" width="45%"> -->
             </div>
         </div>
     </div>
@@ -141,65 +141,32 @@
             const formData = new FormData();
             formData.append('imageFile', imageFile);
 
-            fetch('https://localhost:7146/process-image', {
+            fetch('https://localhost:7146/RemoveBackground', {
                 method: 'POST',
                 body: formData
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Error sending image to API.');
+                    throw new Error('Lỗi khi gửi ảnh đến API.');
                 }
-                return response.text();
-            })
-            .then(base64String => {
-                // Display processed image
-                const displayImage = document.getElementById('displayImage');
-                displayImage.src = `data:image/png;base64,${base64String}`;
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-
-            fetch('https://localhost:7146/draw-circle', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error sending image to API.');
-                }
-                return response.text();
-            })
-            .then(base64String => {
-                // Display processed image with red circle
-                const displayImage = document.getElementById('red');
-                displayImage.src = `data:image/png;base64,${base64String}`;
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-
-            fetch('https://localhost:7146/check-pattern', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Error sending image to API.');
-                }
-                return response.text();
+                return response.json();
             })
             .then(rs => {
-                // Display pattern check result
-                const resultText = document.getElementById('result');
-                if (rs < 900) {
-                    resultText.textContent = `No pattern detected, score: ${rs}`;
-                } else {
-                    resultText.textContent = `Pattern detected, score: ${rs}`;
+                // Hiển thị ảnh đã xử lý lên thẻ <img>
+                console.log(rs);
+                const displayImage1 = document.getElementById('result');
+                const displayImage2 = document.getElementById('displayImage');
+                if(rs.blackPixelCount <900){
+                    displayImage1.innerHTML = "không hoa văn " + rs.blackPixelCount;
                 }
+                else{
+                    displayImage1.innerHTML = "có hoa văn  " + rs.blackPixelCount;
+                }
+                // displayImage.innerHTML = rs;
+                displayImage2.src = `data:image/png;base64,${rs.image}`;
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Lỗi:', error);
             });
         }
 

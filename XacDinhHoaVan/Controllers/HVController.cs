@@ -160,7 +160,93 @@ public class HVController : ControllerBase
 
         return false;
     }
+    [HttpPost("RemoveBackground")]
+    public IActionResult DrawRedOutlineAndCountBlackPixels([FromForm] IFormFile imageFile)
+    {
+        if (imageFile == null || imageFile.Length == 0)
+            return BadRequest("No image file provided.");
 
+        try
+        {
+            // Đọc file hình ảnh từ input stream
+            using var ms = new MemoryStream();
+            imageFile.CopyTo(ms);
+            byte[] fileBytes = ms.ToArray();
+
+            Mat src = Cv2.ImDecode(fileBytes, ImreadModes.Color);
+
+            // Chuyển đổi sang ảnh xám
+            Mat gray = new Mat();
+            Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+
+            // Áp dụng threshold để tách nền
+            Mat thresh = new Mat();
+            Cv2.Threshold(gray, thresh, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+
+            // Tìm contour của đối tượng đĩa
+            Point[][] contours;
+            HierarchyIndex[] hierarchy;
+            Cv2.FindContours(thresh, out contours, out hierarchy, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+
+            // Tìm contour lớn nhất (giả sử đó là vật chủ)
+            Point[] largestContour = null;
+            double maxArea = 0;
+
+            foreach (var contour in contours)
+            {
+                double area = Cv2.ContourArea(contour);
+                if (area > maxArea)
+                {
+                    maxArea = area;
+                    largestContour = contour;
+                }
+            }
+
+            int blackPixelCount = 0;
+            if (largestContour != null)
+            {
+                // Tạo một mask để xác định vùng contour lớn nhất
+                Mat mask = Mat.Zeros(src.Size(), MatType.CV_8UC1);
+                Cv2.DrawContours(mask, new[] { largestContour }, -1, Scalar.White, -1);
+
+                // Lọc vùng contour trong ảnh gốc và đổi màu không thuộc khoảng từ trắng đến xám nhạt thành đen
+                for (int y = 0; y < src.Rows; y++)
+                {
+                    for (int x = 0; x < src.Cols; x++)
+                    {
+                        if (mask.At<byte>(y, x) > 0) // Chỉ xử lý trong vùng contour
+                        {
+                            Vec3b pixel = src.At<Vec3b>(y, x);
+                            if ((pixel.Item0 > 150 && pixel.Item1 > 150 && pixel.Item2 > 150) ) // Giữ nguyên khoảng màu từ 149 đến 255
+                            {
+                                continue;
+                            }
+                            else
+                            {
+                                // Đổi màu thành đen
+                                src.Set(y, x, new Vec3b(0, 0, 0));
+                                blackPixelCount++;
+                            }
+                        }
+                    }
+                }
+
+                // Vẽ đường viền màu đỏ xung quanh contour lớn nhất
+                Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(0, 0, 255), 2); // Màu đỏ (BGR: 0,0,255)\
+            }
+
+            // Chuyển ảnh kết quả sang base64
+            byte[] resultBytes = src.ToBytes(".png");
+            string base64String = Convert.ToBase64String(resultBytes);
+
+            // Trả về ảnh và số lượng điểm ảnh đen trong vật chủ
+            return Ok(new { Image = base64String, BlackPixelCount = blackPixelCount });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Internal server error: {ex.Message}");
+        }
+    }
 
 
 }
