@@ -203,6 +203,7 @@ public class HVController : ControllerBase
             }
 
             int blackPixelCount = 0;
+            int redPixelCount = 0;
             if (largestContour != null)
             {
                 // Tạo một mask để xác định vùng contour lớn nhất
@@ -233,6 +234,18 @@ public class HVController : ControllerBase
 
                 // Vẽ đường viền màu đỏ xung quanh contour lớn nhất
                 Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(0, 0, 255), 2); // Màu đỏ (BGR: 0,0,255)\
+                                                                                               // Tạo mask cho vùng có đường viền đỏ
+                for (int y = 0; y < src.Rows; y++)
+                {
+                    for (int x = 0; x < src.Cols; x++)
+                    {
+                        Vec3b pixel = src.At<Vec3b>(y, x);
+                        if (pixel.Item0 == 0 && pixel.Item1 == 0 && pixel.Item2 == 255) // Đường viền đỏ
+                        {
+                            redPixelCount++;
+                        }
+                    }
+                }
             }
 
             // Chuyển ảnh kết quả sang base64
@@ -240,7 +253,7 @@ public class HVController : ControllerBase
             string base64String = Convert.ToBase64String(resultBytes);
 
             // Trả về ảnh và số lượng điểm ảnh đen trong vật chủ
-            return Ok(new { Image = base64String, BlackPixelCount = blackPixelCount });
+            return Ok(new { Image = base64String, BlackPixelCount = blackPixelCount - redPixelCount/2 });
         }
         catch (Exception ex)
         {
