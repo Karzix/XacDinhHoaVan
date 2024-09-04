@@ -3,9 +3,11 @@ using OpenCvSharp;
 
 public class HVController : ControllerBase
 {
+    private double tiLeHinhTron = 0.35; 
     [HttpPost("check-pattern")]
     public IActionResult CheckImage(IFormFile imageFile)
     {
+        
         if (imageFile == null || imageFile.Length == 0)
             return BadRequest("Invalid image file.");
 
@@ -15,7 +17,6 @@ public class HVController : ControllerBase
 
         // Tải hình ảnh
         Mat src = Cv2.ImDecode(imageData, ImreadModes.Color);
-
         // Định nghĩa giới hạn dưới và trên cho dải màu từ đen đến xám đậm để giữ lại
         Scalar lowerBound = new Scalar(0, 0, 0); // Màu đen
         Scalar upperBound = new Scalar(149, 149, 149); // Màu xám đậm
@@ -29,7 +30,7 @@ public class HVController : ControllerBase
 
         // Xác định tâm và bán kính của hình tròn
         Point center = new Point(src.Width / 2, src.Height / 2);
-        int radius = (int)(0.4 * src.Width);
+        int radius = (int)(tiLeHinhTron * src.Width);
 
         // Tạo mặt nạ hình tròn
         Mat circleMask = new Mat(src.Size(), MatType.CV_8UC1, new Scalar(0));
@@ -43,7 +44,7 @@ public class HVController : ControllerBase
         int blackPixelCount = Cv2.CountNonZero(blackPixelsInCircle);
 
         // Trả về số lượng điểm ảnh đen
-        return Ok(new { BlackPixelCount = blackPixelCount });
+        return Ok(blackPixelCount);
     }
     [HttpPost("process-image")]
     public IActionResult ProcessImage(IFormFile imageFile)
@@ -94,7 +95,7 @@ public class HVController : ControllerBase
 
         // Xác định tâm và bán kính của hình tròn
         Point center = new Point(src.Width / 2, src.Height / 2);
-        int radius = (int)(0.4 * src.Width);
+        int radius = (int)(tiLeHinhTron * src.Width);
 
         // Vẽ hình tròn màu đỏ
         Cv2.Circle(src, center, radius, new Scalar(0, 0, 255), 2); // Màu đỏ (BGR: 0, 0, 255), độ dày 2
@@ -105,5 +106,61 @@ public class HVController : ControllerBase
 
         return Ok(base64String);
     }
+    private bool IsLargeCircle(Mat src)
+    {
+        // Chuyển đổi ảnh sang ảnh xám
+        Mat gray = new Mat();
+        Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+
+        // Làm mờ ảnh để giảm nhiễu
+        Mat blurred = new Mat();
+        Cv2.GaussianBlur(gray, blurred, new Size(5, 5), 0);
+
+        // Phát hiện các cạnh trong ảnh
+        Mat edges = new Mat();
+        Cv2.Canny(blurred, edges, 100, 200);
+
+        // Tìm các đường viền trong ảnh
+        Cv2.FindContours(edges, out Point[][] contours, out HierarchyIndex[] hierarchy, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+
+        // Tính diện tích của toàn bộ ảnh
+        double totalArea = src.Width * src.Height;
+
+        // Duyệt qua các đường viền để kiểm tra hình tròn lớn
+        foreach (var contour in contours)
+        {
+            // Tính chu vi của đường viền
+            double perimeter = Cv2.ArcLength(contour, true);
+
+            // Xấp xỉ hình dạng của đường viền
+            Point[] approx = Cv2.ApproxPolyDP(contour, 0.04 * perimeter, true);
+
+            // Tính diện tích của đường viền
+            double area = Cv2.ContourArea(contour);
+
+            // Tính tỷ lệ giữa diện tích và chu vi để xác định hình tròn
+            double circularity = 4 * Math.PI * (area / (perimeter * perimeter));
+
+            // Nếu tỷ lệ gần với 1, đó là hình tròn
+            if (circularity > 0.8 && circularity <= 1.2)
+            {
+                // Tìm tâm và bán kính của hình tròn
+                Cv2.MinEnclosingCircle(contour, out Point2f center, out float radius);
+
+                // Tính diện tích của hình tròn
+                double circleArea = Math.PI * radius * radius;
+
+                // So sánh diện tích hình tròn với diện tích ảnh
+                if ((int)circleArea > (int)(0.7 * totalArea))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+
 
 }
