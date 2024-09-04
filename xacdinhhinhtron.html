@@ -3,41 +3,131 @@
 
 <head>
     <title>Webcam Capture</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        #container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            /* max-width: 900px; */
+            width: 100%;
+        }
+
+        #webcam, #image-result {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #webcam {
+            flex: 1;
+            margin-right: 30px;
+        }
+
+        #video {
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+
+        #capture {
+            margin-top: 15px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #capture:hover {
+            background-color: #0056b3;
+        }
+
+        #image-result {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        #image-result img {
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 24px;
+            color: #555;
+            text-align: center;
+        }
+
+        #content {
+            display: flex;
+            gap: 30px;
+            justify-content: space-between;
+        }
+    </style>
 </head>
 
 <body>
-    <h2>Webcam Capture</h2>
-    <video id="video" width="400" autoplay></video>
-    <canvas id="canvas" style="display:none;"></canvas>
-    <button id="capture">Capture</button>
-    <h1 id="result"></h1>
-    <img id="displayImage" width="500">
-    <img id="red" width="500">
-    
+    <div id="container">
+        <h2>Webcam Capture</h2>
+        <div id="content">
+            <div id="webcam">
+                <video id="video" width="400" autoplay></video>
+                <canvas id="canvas" style="display:none;"></canvas>
+                <button id="capture">Capture</button>
+                <h1 id="result"></h1>
+            </div>
+
+            <div id="image-result">
+                <img id="displayImage" width="45%">
+                <img id="red" width="45%">
+            </div>
+        </div>
+    </div>
 
     <script type="text/javascript">
-        // Khởi tạo webcam
+        // Initialize webcam
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
         const capture = document.getElementById('capture');
 
-        // Truy cập webcam
+        // Access the webcam
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
                 video.srcObject = stream;
             })
             .catch(err => {
-                console.error('Lỗi khi truy cập webcam:', err);
+                console.error('Error accessing webcam:', err);
             });
 
-        // Hàm chụp ảnh từ webcam
+        // Capture image from webcam
         function captureImage() {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             let imgData = canvas.toDataURL('image/png');
-
 
             // Convert base64 to Blob
             fetch(imgData)
@@ -57,17 +147,17 @@
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Lỗi khi gửi ảnh đến API.');
+                    throw new Error('Error sending image to API.');
                 }
                 return response.text();
             })
             .then(base64String => {
-                // Hiển thị ảnh đã xử lý lên thẻ <img>
+                // Display processed image
                 const displayImage = document.getElementById('displayImage');
                 displayImage.src = `data:image/png;base64,${base64String}`;
             })
             .catch(error => {
-                console.error('Lỗi:', error);
+                console.error('Error:', error);
             });
 
             fetch('https://localhost:7146/draw-circle', {
@@ -76,17 +166,17 @@
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Lỗi khi gửi ảnh đến API.');
+                    throw new Error('Error sending image to API.');
                 }
                 return response.text();
             })
             .then(base64String => {
-                // Hiển thị ảnh đã xử lý lên thẻ <img>
+                // Display processed image with red circle
                 const displayImage = document.getElementById('red');
                 displayImage.src = `data:image/png;base64,${base64String}`;
             })
             .catch(error => {
-                console.error('Lỗi:', error);
+                console.error('Error:', error);
             });
 
             fetch('https://localhost:7146/check-pattern', {
@@ -95,25 +185,25 @@
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Lỗi khi gửi ảnh đến API.');
+                    throw new Error('Error sending image to API.');
                 }
                 return response.text();
             })
             .then(rs => {
-                // Hiển thị kết quả kiểm tra hoa văn
-                const displayImage = document.getElementById('result');
+                // Display pattern check result
+                const resultText = document.getElementById('result');
                 if (rs < 900) {
-                    displayImage.innerHTML = "không hoa văn " + rs;
+                    resultText.textContent = `No pattern detected, score: ${rs}`;
                 } else {
-                    displayImage.innerHTML = "có hoa văn " + rs;
+                    resultText.textContent = `Pattern detected, score: ${rs}`;
                 }
             })
             .catch(error => {
-                console.error('Lỗi:', error);
+                console.error('Error:', error);
             });
         }
 
-        // Thêm sự kiện khi nhấn nút Capture
+        // Add event listener to Capture button
         capture.addEventListener('click', captureImage);
     </script>
 </body>
