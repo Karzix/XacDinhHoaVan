@@ -224,9 +224,13 @@ public class HVController : ControllerBase
                             }
                             else
                             {
-                                // Đổi màu thành đen
-                                src.Set(y, x, new Vec3b(0, 0, 0));
-                                blackPixelCount++;
+                                double distance = Cv2.PointPolygonTest(largestContour, new Point(x, y), true);
+                                if (distance > 10) // Không tính các điểm đen gần viền trong khoảng 10px
+                                {
+                                    // Đổi màu thành đen
+                                    src.Set(y, x, new Vec3b(255, 0, 0));
+                                    blackPixelCount++;
+                                }
                             }
                         }
                     }
@@ -253,7 +257,7 @@ public class HVController : ControllerBase
             string base64String = Convert.ToBase64String(resultBytes);
 
             // Trả về ảnh và số lượng điểm ảnh đen trong vật chủ
-            return Ok(new { Image = base64String, BlackPixelCount = blackPixelCount - redPixelCount/2 });
+            return Ok(new { Image = base64String, BlackPixelCount = blackPixelCount });
         }
         catch (Exception ex)
         {
