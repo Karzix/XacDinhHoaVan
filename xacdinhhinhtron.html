@@ -29,7 +29,8 @@
             width: 100%;
         }
 
-        #webcam, #image-result {
+        #webcam,
+        #image-result {
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -45,7 +46,7 @@
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
         }
 
-        #capture {
+        .button {
             margin-top: 15px;
             padding: 10px 20px;
             border: none;
@@ -57,7 +58,7 @@
             transition: background-color 0.3s;
         }
 
-        #capture:hover {
+        .button:hover {
             background-color: #0056b3;
         }
 
@@ -95,7 +96,9 @@
             <div id="webcam">
                 <video id="video" width="400" autoplay></video>
                 <canvas id="canvas" style="display:none;"></canvas>
-                <button id="capture">Capture</button>
+                <button id="capture" class="button">Capture</button>
+                <button id="startAutoCapture" class="button">Chụp tự động</button>
+                <button id="stopAutoCapture" disabled class="button">Dừng chụp</button>
                 <h1 id="result"></h1>
             </div>
 
@@ -112,6 +115,8 @@
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
         const capture = document.getElementById('capture');
+        const startAutoCapture = document.getElementById('startAutoCapture');
+        const stopAutoCapture = document.getElementById('stopAutoCapture');
 
         // Access the webcam
         navigator.mediaDevices.getUserMedia({ video: true })
@@ -145,33 +150,46 @@
                 method: 'POST',
                 body: formData
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Lỗi khi gửi ảnh đến API.');
-                }
-                return response.json();
-            })
-            .then(rs => {
-                // Hiển thị ảnh đã xử lý lên thẻ <img>
-                console.log(rs);
-                const displayImage1 = document.getElementById('result');
-                const displayImage2 = document.getElementById('displayImage');
-                if(rs.blackPixelCount < 1000){
-                    displayImage1.innerHTML = "không hoa văn " + rs.blackPixelCount;
-                }
-                else{
-                    displayImage1.innerHTML = "có hoa văn  " + rs.blackPixelCount;
-                }
-                // displayImage.innerHTML = rs;
-                displayImage2.src = `data:image/png;base64,${rs.image}`;
-            })
-            .catch(error => {
-                console.error('Lỗi:', error);
-            });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Lỗi khi gửi ảnh đến API.');
+                    }
+                    return response.json();
+                })
+                .then(rs => {
+                    // Hiển thị ảnh đã xử lý lên thẻ <img>
+                    console.log(rs);
+                    const displayImage1 = document.getElementById('result');
+                    const displayImage2 = document.getElementById('displayImage');
+                    if (rs.blackPixelCount < 1000) {
+                        displayImage1.innerHTML = "không hoa văn " + rs.blackPixelCount;
+                    }
+                    else {
+                        displayImage1.innerHTML = "có hoa văn  " + rs.blackPixelCount;
+                    }
+                    // displayImage.innerHTML = rs;
+                    displayImage2.src = `data:image/png;base64,${rs.image}`;
+                })
+                .catch(error => {
+                    console.error('Lỗi:', error);
+                });
         }
 
         // Add event listener to Capture button
         capture.addEventListener('click', captureImage);
+        // Chụp tự động
+        startAutoCapture.addEventListener('click', () => {
+            intervalId = setInterval(captureImage, 2000);  // Chụp mỗi 5 giây
+            startAutoCapture.disabled = true;  // Vô hiệu hóa nút "Chụp tự động"
+            stopAutoCapture.disabled = false;  // Bật nút "Dừng chụp"
+        });
+
+        // Dừng chụp tự động
+        stopAutoCapture.addEventListener('click', () => {
+            clearInterval(intervalId);  // Dừng interval
+            startAutoCapture.disabled = false;  // Bật lại nút "Chụp tự động"
+            stopAutoCapture.disabled = true;  // Vô hiệu hóa nút "Dừng chụp"
+        });
     </script>
 </body>
 
