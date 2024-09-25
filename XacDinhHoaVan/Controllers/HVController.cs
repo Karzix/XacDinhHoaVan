@@ -216,13 +216,23 @@ public class HVController : ControllerBase
                 }
             }
 
+            /// Tạo một mask để xác định vùng contour lớn nhất
+            //Mat mask = Mat.Zeros(src.Size(), MatType.CV_8UC1);
+            Cv2.DrawContours(mask, new[] { largestContour }, -1, Scalar.White, -1);
+
+            // Erode the mask to shrink the largest contour by 10 pixels
+            Mat erodedMask = new Mat();
+            Cv2.Erode(mask, erodedMask, Cv2.GetStructuringElement(MorphShapes.Rect, new Size(10, 10))); // Use Rect instead of Rectangle
+
             // Đếm số lượng điểm ảnh đen trong vật chủ
             Mat blackMask = new Mat();
             Cv2.InRange(src, new Scalar(0, 0, 0), new Scalar(50, 50, 50), blackMask); // Giới hạn màu để đếm pixel đen
-            blackPixelCountInObject = Cv2.CountNonZero(blackMask & mask); // Chỉ đếm trong vùng contour lớn nhất
+            blackPixelCountInObject = Cv2.CountNonZero(blackMask & erodedMask); // Chỉ đếm trong vùng contour lớn nhất đã co lại
+
+
 
             // Vẽ đường viền màu đỏ xung quanh contour lớn nhất
-            Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(0, 0, 255), 2); // Màu đỏ (BGR: 0,0,255)
+            Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(0, 0, 255), 10); // Màu đỏ (BGR: 0,0,255)
 
             // Vẽ một hình tròn lớn bằng 30% kích thước vật chủ
             var rect = Cv2.BoundingRect(largestContour);
@@ -242,13 +252,16 @@ public class HVController : ControllerBase
             // Chuyển ảnh kết quả sang base64
             byte[] resultBytes = src.ToBytes(".png");
             string base64String = Convert.ToBase64String(resultBytes);
+            int loaidia = blackPixelCountInObject - blackPixelCountInsideCircle;
 
+         
             // Trả về ảnh và số lượng điểm ảnh đen trong vật chủ, và trong hình tròn
             return Ok(new
             {
                 Image = base64String,
                 BlackPixelCountInObject = blackPixelCountInObject,
-                BlackPixelCountInsideCircle = blackPixelCountInsideCircle
+                BlackPixelCountInsideCircle = blackPixelCountInsideCircle,
+                LoaiDia = loaidia,
             });
         }
         catch (Exception ex)
