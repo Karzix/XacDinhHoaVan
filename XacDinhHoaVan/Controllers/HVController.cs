@@ -161,7 +161,7 @@ public class HVController : ControllerBase
         return false;
     }
     [HttpPost("RemoveBackground")]
-    public IActionResult DrawRedOutlineAndCountBlackPixels([FromForm] IFormFile imageFile)
+    public IActionResult DrawRedOutlineAndCountBlackPixels(IFormFile imageFile)
     {
         if (imageFile == null || imageFile.Length == 0)
             return BadRequest("No image file provided.");
@@ -189,81 +189,72 @@ public class HVController : ControllerBase
             Cv2.FindContours(thresh, out contours, out hierarchy, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
 
             // Tìm contour lớn nhất (giả sử đó là vật chủ)
-            Point[] largestContour = null;
-            double maxArea = 0;
+            Point[] largestContour = contours.OrderByDescending(c => Cv2.ContourArea(c)).FirstOrDefault();
 
-            foreach (var contour in contours)
+            if (largestContour == null)
+                return BadRequest("No object detected.");
+
+            // Tạo một mask để xác định vùng contour lớn nhất
+            Mat mask = Mat.Zeros(src.Size(), MatType.CV_8UC1);
+            Cv2.DrawContours(mask, new[] { largestContour }, -1, Scalar.White, -1);
+
+            int blackPixelCountInObject = 0; // Đếm pixel đen trong vật chủ
+            int blackPixelCountInsideCircle = 0; // Đếm pixel đen trong hình tròn 30%
+
+            // Chuyển tất cả các màu khác trắng sang màu đen, trừ các màu từ trắng đến xám nhạt
+            for (int y = 0; y < src.Rows; y++)
             {
-                double area = Cv2.ContourArea(contour);
-                if (area > maxArea)
+                for (int x = 0; x < src.Cols; x++)
                 {
-                    maxArea = area;
-                    largestContour = contour;
-                }
-            }
-
-            int blackPixelCount = 0;
-            int redPixelCount = 0;
-            if (largestContour != null)
-            {
-                // Tạo một mask để xác định vùng contour lớn nhất
-                Mat mask = Mat.Zeros(src.Size(), MatType.CV_8UC1);
-                Cv2.DrawContours(mask, new[] { largestContour }, -1, Scalar.White, -1);
-
-                // Lọc vùng contour trong ảnh gốc và đổi màu không thuộc khoảng từ trắng đến xám nhạt thành đen
-                for (int y = 0; y < src.Rows; y++)
-                {
-                    for (int x = 0; x < src.Cols; x++)
+                    Vec3b pixel = src.At<Vec3b>(y, x);
+                    // Kiểm tra xem pixel có nằm trong khoảng từ (150, 150, 150) trở lên hay không
+                    if (pixel.Item0 < 150 || pixel.Item1 < 150 || pixel.Item2 < 150)
                     {
-                        if (mask.At<byte>(y, x) > 0) // Chỉ xử lý trong vùng contour
-                        {
-                            Vec3b pixel = src.At<Vec3b>(y, x);
-                            if ((pixel.Item0 > 150 && pixel.Item1 > 150 && pixel.Item2 > 150) ) // Giữ nguyên khoảng màu từ 149 đến 255
-                            {
-                                continue;
-                            }
-                            else
-                            {
-                                double distance = Cv2.PointPolygonTest(largestContour, new Point(x, y), true);
-                                if (distance > 10) // Không tính các điểm đen gần viền trong khoảng 10px
-                                {
-                                    // Đổi màu thành đen
-                                    src.Set(y, x, new Vec3b(255, 0, 0));
-                                    blackPixelCount++;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Vẽ đường viền màu đỏ xung quanh contour lớn nhất
-                Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(0, 0, 255), 2); // Màu đỏ (BGR: 0,0,255)\
-                                                                                               // Tạo mask cho vùng có đường viền đỏ
-                for (int y = 0; y < src.Rows; y++)
-                {
-                    for (int x = 0; x < src.Cols; x++)
-                    {
-                        Vec3b pixel = src.At<Vec3b>(y, x);
-                        if (pixel.Item0 == 0 && pixel.Item1 == 0 && pixel.Item2 == 255) // Đường viền đỏ
-                        {
-                            redPixelCount++;
-                        }
+                        // Nếu không thì đổi màu thành đen
+                        src.Set(y, x, new Vec3b(0, 0, 0));
                     }
                 }
             }
+
+            // Đếm số lượng điểm ảnh đen trong vật chủ
+            Mat blackMask = new Mat();
+            Cv2.InRange(src, new Scalar(0, 0, 0), new Scalar(50, 50, 50), blackMask); // Giới hạn màu để đếm pixel đen
+            blackPixelCountInObject = Cv2.CountNonZero(blackMask & mask); // Chỉ đếm trong vùng contour lớn nhất
+
+            // Vẽ đường viền màu đỏ xung quanh contour lớn nhất
+            Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(0, 0, 255), 2); // Màu đỏ (BGR: 0,0,255)
+
+            // Vẽ một hình tròn lớn bằng 30% kích thước vật chủ
+            var rect = Cv2.BoundingRect(largestContour);
+            int radius = (int)(Math.Min(rect.Width, rect.Height) * 0.3 / 2); // Bán kính bằng 30% của vật chủ
+            Point center = new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2); // Tọa độ tâm của vật chủ
+
+            // Đếm số lượng điểm ảnh đen bên trong hình tròn
+            Mat circleMask = Mat.Zeros(src.Size(), MatType.CV_8UC1);
+            Cv2.Circle(circleMask, center, radius, Scalar.White, -1);
+
+            // Đếm pixel đen bên trong hình tròn
+            blackPixelCountInsideCircle = Cv2.CountNonZero(blackMask & circleMask);
+
+            // Vẽ viền xung quanh hình tròn nơi đếm số pixel đen
+            Cv2.Circle(src, center, radius, new Scalar(255, 0, 0), 2); // Viền màu xanh dương (BGR: 255, 0, 0)
 
             // Chuyển ảnh kết quả sang base64
             byte[] resultBytes = src.ToBytes(".png");
             string base64String = Convert.ToBase64String(resultBytes);
 
-            // Trả về ảnh và số lượng điểm ảnh đen trong vật chủ
-            return Ok(new { Image = base64String, BlackPixelCount = blackPixelCount });
+            // Trả về ảnh và số lượng điểm ảnh đen trong vật chủ, và trong hình tròn
+            return Ok(new
+            {
+                Image = base64String,
+                BlackPixelCountInObject = blackPixelCountInObject,
+                BlackPixelCountInsideCircle = blackPixelCountInsideCircle
+            });
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Internal server error: {ex.Message}");
+            return StatusCode(500, $"Error processing image: {ex.Message}");
         }
     }
-
 
 }
