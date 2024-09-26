@@ -208,9 +208,13 @@ public class HVController : ControllerBase
                 {
                     Vec3b pixel = src.At<Vec3b>(y, x);
                     // Kiểm tra xem pixel có nằm trong khoảng từ (150, 150, 150) trở lên hay không
-                    if (pixel.Item0 < 150 || pixel.Item1 < 150 || pixel.Item2 < 150)
+                    if (pixel.Item0 > 150 && pixel.Item1 > 150 && pixel.Item2 > 150)
                     {
                         // Nếu không thì đổi màu thành đen
+
+                    }
+                    else
+                    {
                         src.Set(y, x, new Vec3b(0, 0, 0));
                     }
                 }
@@ -232,11 +236,11 @@ public class HVController : ControllerBase
 
 
             // Vẽ đường viền màu đỏ xung quanh contour lớn nhất
-            Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(0, 0, 255), 10); // Màu đỏ (BGR: 0,0,255)
+            Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(255, 0, 0), 5); // Màu đỏ (BGR: 0,0,255)
 
             // Vẽ một hình tròn lớn bằng 30% kích thước vật chủ
             var rect = Cv2.BoundingRect(largestContour);
-            int radius = (int)(Math.Min(rect.Width, rect.Height) * 0.4 / 2); // Bán kính bằng 30% của vật chủ
+            int radius = (int)(Math.Min(rect.Width, rect.Height) * 0.45 / 2); // Bán kính bằng 30% của vật chủ
             Point center = new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2); // Tọa độ tâm của vật chủ
 
             // Đếm số lượng điểm ảnh đen bên trong hình tròn
