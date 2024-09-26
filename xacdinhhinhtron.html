@@ -117,7 +117,7 @@
         const capture = document.getElementById('capture');
         const startAutoCapture = document.getElementById('startAutoCapture');
         const stopAutoCapture = document.getElementById('stopAutoCapture');
-
+        const url = 'http://localhost:5056/'
         // Access the webcam
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(stream => {
@@ -146,7 +146,7 @@
             const formData = new FormData();
             formData.append('imageFile', imageFile);
 
-            fetch('https://localhost:7146/RemoveBackground', {
+            fetch(url +'RemoveBackground', {
                 method: 'POST',
                 body: formData
             })
@@ -161,12 +161,7 @@
                     console.log(rs);
                     const displayImage1 = document.getElementById('result');
                     const displayImage2 = document.getElementById('displayImage');
-                    if (rs.blackPixelCount < 1000) {
-                        displayImage1.innerHTML = "không hoa văn " + rs.blackPixelCount;
-                    }
-                    else {
-                        displayImage1.innerHTML = "có hoa văn  " + rs.blackPixelCount;
-                    }
+                    displayImage1.innerHTML = 'điểm ảnh sau khi trừ: ' + rs.loaiDia + ' <br/> vật chủ: ' + rs.blackPixelCountInObject + ' <br/> tròn 30%: ' + rs.blackPixelCountInsideCircle;
                     // displayImage.innerHTML = rs;
                     displayImage2.src = `data:image/png;base64,${rs.image}`;
                 })

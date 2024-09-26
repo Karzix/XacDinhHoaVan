@@ -236,7 +236,7 @@ public class HVController : ControllerBase
 
             // Vẽ một hình tròn lớn bằng 30% kích thước vật chủ
             var rect = Cv2.BoundingRect(largestContour);
-            int radius = (int)(Math.Min(rect.Width, rect.Height) * 0.3 / 2); // Bán kính bằng 30% của vật chủ
+            int radius = (int)(Math.Min(rect.Width, rect.Height) * 0.4 / 2); // Bán kính bằng 30% của vật chủ
             Point center = new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2); // Tọa độ tâm của vật chủ
 
             // Đếm số lượng điểm ảnh đen bên trong hình tròn

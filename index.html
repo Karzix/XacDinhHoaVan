@@ -18,7 +18,7 @@
 
     <!-- Thẻ img để hiển thị ảnh sau khi xử lý -->
     <img id="displayImage" src="" alt="Ảnh sẽ được hiển thị tại đây" style="max-width: 500px; height: auto;">
-    <img id="red" src="" alt="Ảnh sẽ được hiển thị tại đây" style="max-width: 500px; height: auto;">
+    <!-- <img id="red" src="" alt="Ảnh sẽ được hiển thị tại đây" style="max-width: 500px; height: auto;"> -->
 
     <script>
         // Hàm gửi ảnh đến API và xử lý kết quả trả về
@@ -64,7 +64,7 @@
             //     console.error('Lỗi:', error);
             // });
 
-            fetch('https://localhost:7146/RemoveBackground', {
+            fetch('http://localhost:5056/RemoveBackground', {
                 method: 'POST',
                 body: formData
             })
@@ -79,12 +79,7 @@
                 console.log(rs);
                 const displayImage1 = document.getElementById('result');
                 const displayImage2 = document.getElementById('displayImage');
-                if(rs.blackPixelCount <900){
-                    displayImage1.innerHTML = "không hoa văn " + rs.blackPixelCount;
-                }
-                else{
-                    displayImage1.innerHTML = "có hoa văn  " + rs.blackPixelCount;
-                }
+                displayImage1.innerHTML = rs.loaiDia
                 // displayImage.innerHTML = rs;
                 displayImage2.src = `data:image/png;base64,${rs.image}`;
             })
