@@ -1,28 +1,27 @@
-name: CI/CD for Docker Deployment
+name: Deploy to Docker Hub
 
-# Kích hoạt workflow khi push code lên nhánh master
 on:
   push:
     branches:
-      - master
-
+      - deploy  # Triển khai khi code được gộp vào nhánh deploy
+      
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Check out code từ repository
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. Đăng nhập vào Docker Hub
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 3. Build Docker image dựa trên Dockerfile
       - name: Build Docker Image
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/xdhv:latest .
@@ -32,7 +31,7 @@ jobs:
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/xdhv:latest
 
-     - name: Deploy to remote server via SSH
+      - name: Deploy to remote server via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}  # Lưu địa chỉ IP/hostname của server SSH trong Secrets
@@ -40,19 +39,11 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD }}  # Lưu password của server SSH trong Secrets hoặc sử dụng private key
           port: 22  # Cổng SSH (mặc định là 22)
           script: |
-            # Dừng container cũ nếu có
-            docker stop xdhv-container || true
-            docker rm xdhv-container || true
+            docker pull karzix/xdhv:latest
 
-            # Xóa image cũ
-            docker rmi ${{ secrets.DOCKER_USERNAME }}/xdhv:latest || true
+            docker stop xdhv-container  || true
+            docker rm xdhv-container  || true
 
-            # Pull image mới từ Docker Hub
-            docker pull ${{ secrets.DOCKER_USERNAME }}/xdhv:latest
+            docker run -d --name xdhv-container --restart unless-stopped -p 5000:5000 karzix/xdhv:latest
 
-            # Chạy container mới
-            docker run -d --name xdhv-container -p 5000:5000 ${{ secrets.DOCKER_USERNAME }}/xdhv:latest
-
-            # Xóa các image cũ không sử dụng
-            docker image prune -f
-          EOF
+            docker image prune -a -f
