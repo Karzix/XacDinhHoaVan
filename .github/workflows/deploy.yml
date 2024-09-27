@@ -44,6 +44,6 @@ jobs:
             docker stop xdhv-container  || true
             docker rm xdhv-container  || true
 
-            docker run -d --name xdhv-container --restart unless-stopped -p 5000:5000 karzix/xdhv:latest
+            docker run -d --name xdhv-container --restart unless-stopped -p 3000:8080 karzix/xdhv:latest
 
             docker image prune -a -f
