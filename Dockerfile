@@ -11,6 +11,10 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
+# Cài đặt các thư viện OpenCV cần thiết
+RUN apt-get update && apt-get install -y libopencv-dev
+
+
 COPY ["XacDinhHoaVan/XacDinhHoaVan.csproj", "XacDinhHoaVan/"]
 
 # Khôi phục các dependencies mà không cần thêm nguồn nuget
