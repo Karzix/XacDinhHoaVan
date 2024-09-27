@@ -268,15 +268,15 @@ public class HVController : ControllerBase
             byte[] resultBytes = src.ToBytes(".png");
             string base64String = Convert.ToBase64String(resultBytes);
             string loaidia = "";
-            if(blackPixelCountInObject < 500)
+            if(blackPixelCountInObject < 750)
             {
                 loaidia = "dĩa trắng";
             }
-            else if(blackPixelCountInObject - blackPixelCountInsideCircle < 500)
+            else if(blackPixelCountInObject - blackPixelCountInsideCircle < 750)
             {
                 loaidia = "chỉ có tâm";
             }
-            else if (blackPixelCountInObject > 500 && blackPixelCountInsideCircle < 500)
+            else if (blackPixelCountInObject > 750 && blackPixelCountInsideCircle < 750)
             {
                 loaidia = "chỉ có viền";
             }
