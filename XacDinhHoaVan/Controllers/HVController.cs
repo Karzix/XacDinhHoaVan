@@ -189,7 +189,18 @@ public class HVController : ControllerBase
             Cv2.FindContours(thresh, out contours, out hierarchy, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
 
             // Tìm contour lớn nhất (giả sử đó là vật chủ)
-            Point[] largestContour = contours.OrderByDescending(c => Cv2.ContourArea(c)).FirstOrDefault();
+            Point[] largestContour = null;
+            double maxArea = 0;
+
+            foreach (var contour in contours)
+            {
+                double area = Cv2.ContourArea(contour);
+                if (area > maxArea)
+                {
+                    maxArea = area;
+                    largestContour = contour;
+                }
+            }
 
             if (largestContour == null)
                 return BadRequest("No object detected.");
@@ -234,7 +245,7 @@ public class HVController : ControllerBase
             blackPixelCountInObject = Cv2.CountNonZero(blackMask & erodedMask); // Chỉ đếm trong vùng contour lớn nhất đã co lại
 
 
-
+            //Cv2.DrawContours(src, contours, -1, new Scalar(0, 255, 255), 2);
             // Vẽ đường viền màu đỏ xung quanh contour lớn nhất
             Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(255, 0, 0), 5); // Màu đỏ (BGR: 0,0,255)
 
@@ -256,7 +267,24 @@ public class HVController : ControllerBase
             // Chuyển ảnh kết quả sang base64
             byte[] resultBytes = src.ToBytes(".png");
             string base64String = Convert.ToBase64String(resultBytes);
-            int loaidia = blackPixelCountInObject - blackPixelCountInsideCircle;
+            string loaidia = "";
+            if(blackPixelCountInObject < 500)
+            {
+                loaidia = "dĩa trắng";
+            }
+            else if(blackPixelCountInObject - blackPixelCountInsideCircle < 500)
+            {
+                loaidia = "chỉ có tâm";
+            }
+            else if (blackPixelCountInObject > 500 && blackPixelCountInsideCircle < 500)
+            {
+                loaidia = "chỉ có viền";
+            }
+            else
+            {
+                loaidia = "có cả tâm với viền";
+            }
+
 
          
             // Trả về ảnh và số lượng điểm ảnh đen trong vật chủ, và trong hình tròn
