@@ -1,104 +1,192 @@
+
 <!DOCTYPE html>
-<html lang="vi">
+<html>
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chọn và Xử lý Ảnh</title>
+    <title>Webcam Capture</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        #container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            /* max-width: 900px; */
+            width: 100%;
+        }
+
+        #webcam,
+        #image-result {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #webcam {
+            flex: 1;
+            margin-right: 30px;
+        }
+
+        #video {
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .button:hover {
+            background-color: #0056b3;
+        }
+
+        #image-result {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        #image-result img {
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 24px;
+            color: #555;
+            text-align: center;
+        }
+
+        #content {
+            display: flex;
+            gap: 30px;
+            justify-content: space-between;
+        }
+    </style>
 </head>
+
 <body>
-    <h1>Chọn và Xử lý Ảnh</h1>
-    <p id="result"></p>
-    <!-- Input file để chọn ảnh -->
-    <input type="file" id="imageInput" accept="image/*">
-    <br><br>
+    <div id="container">
+        <h2>Webcam Capture</h2>
+        <div id="content">
+            <div id="webcam">
+                <video id="video" width="400" autoplay></video>
+                <canvas id="canvas" style="display:none;"></canvas>
+                <button id="capture" class="button">Capture</button>
+                <button id="startAutoCapture" class="button">Chụp tự động</button>
+                <button id="stopAutoCapture" disabled class="button">Dừng chụp</button>
+                <h1 id="result"></h1>
+            </div>
 
-    <!-- Nút để gửi ảnh đến API -->
-    <button id="submitButton">Gửi Ảnh</button>
-    <br><br>
+            <div id="image-result">
+                <img id="displayImage" width="100%">
+                <!-- <img id="red" width="45%"> -->
+            </div>
+        </div>
+    </div>
 
-    <!-- Thẻ img để hiển thị ảnh sau khi xử lý -->
-    <img id="displayImage" src="" alt="Ảnh sẽ được hiển thị tại đây" style="max-width: 500px; height: auto;">
-    <!-- <img id="red" src="" alt="Ảnh sẽ được hiển thị tại đây" style="max-width: 500px; height: auto;"> -->
+    <script type="text/javascript">
+        // Initialize webcam
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const capture = document.getElementById('capture');
+        const startAutoCapture = document.getElementById('startAutoCapture');
+        const stopAutoCapture = document.getElementById('stopAutoCapture');
+        const url = "http://103.209.34.217:3000/"
+        // Access the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error('Error accessing webcam:', err);
+            });
 
-    <script>
-        // Hàm gửi ảnh đến API và xử lý kết quả trả về
+        // Capture image from webcam
+        function captureImage() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            let imgData = canvas.toDataURL('image/png');
+
+            // Convert base64 to Blob
+            fetch(imgData)
+                .then(res => res.blob())
+                .then(blob => {
+                    sendImageToApi(blob);
+                });
+        }
+
         function sendImageToApi(imageFile) {
             const formData = new FormData();
             formData.append('imageFile', imageFile);
 
-            // fetch('https://localhost:7146/process-image', {
-            //     method: 'POST',
-            //     body: formData
-            // })
-            // .then(response => {
-            //     if (!response.ok) {
-            //         throw new Error('Lỗi khi gửi ảnh đến API.');
-            //     }
-            //     return response.text();
-            // })
-            // .then(base64String => {
-            //     // Hiển thị ảnh đã xử lý lên thẻ <img>
-            //     const displayImage = document.getElementById('displayImage');
-            //     displayImage.src = `data:image/png;base64,${base64String}`;
-            // })
-            // .catch(error => {
-            //     console.error('Lỗi:', error);
-            // });
-
-            // fetch('https://localhost:7146/RemoveBackground', {
-            //     method: 'POST',
-            //     body: formData
-            // })
-            // .then(response => {
-            //     if (!response.ok) {
-            //         throw new Error('Lỗi khi gửi ảnh đến API.');
-            //     }
-            //     return response.text();
-            // })
-            // .then(base64String => {
-            //     // Hiển thị ảnh đã xử lý lên thẻ <img>
-            //     const displayImage = document.getElementById('red');
-            //     displayImage.src = `data:image/png;base64,${base64String}`;
-            // })
-            // .catch(error => {
-            //     console.error('Lỗi:', error);
-            // });
-
-            fetch('http://localhost:5056/RemoveBackground', {
+            fetch(url +'RemoveBackground', {
                 method: 'POST',
                 body: formData
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Lỗi khi gửi ảnh đến API.');
-                }
-                return response.json();
-            })
-            .then(rs => {
-                // Hiển thị ảnh đã xử lý lên thẻ <img>
-                console.log(rs);
-                const displayImage1 = document.getElementById('result');
-                const displayImage2 = document.getElementById('displayImage');
-                displayImage1.innerHTML = rs.loaiDia
-                // displayImage.innerHTML = rs;
-                displayImage2.src = `data:image/png;base64,${rs.image}`;
-            })
-            .catch(error => {
-                console.error('Lỗi:', error);
-            });
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Lỗi khi gửi ảnh đến API.');
+                    }
+                    return response.json();
+                })
+                .then(rs => {
+                    // Hiển thị ảnh đã xử lý lên thẻ <img>
+                    console.log(rs);
+                    const displayImage1 = document.getElementById('result');
+                    const displayImage2 = document.getElementById('displayImage');
+                    displayImage1.innerHTML = 'điểm ảnh sau khi trừ: ' + rs.loaiDia + ' <br/> vật chủ: ' + rs.blackPixelCountInObject + ' <br/> tròn 30%: ' + rs.blackPixelCountInsideCircle;
+                    // displayImage.innerHTML = rs;
+                    displayImage2.src = `data:image/png;base64,${rs.image}`;
+                })
+                .catch(error => {
+                    console.error('Lỗi:', error);
+                });
         }
 
-        // Xử lý sự kiện khi người dùng nhấn nút "Gửi Ảnh"
-        document.getElementById('submitButton').addEventListener('click', function() {
-            const imageInput = document.getElementById('imageInput');
-            const selectedFile = imageInput.files[0];
+        // Add event listener to Capture button
+        capture.addEventListener('click', captureImage);
+        // Chụp tự động
+        startAutoCapture.addEventListener('click', () => {
+            intervalId = setInterval(captureImage, 2000);  // Chụp mỗi 5 giây
+            startAutoCapture.disabled = true;  // Vô hiệu hóa nút "Chụp tự động"
+            stopAutoCapture.disabled = false;  // Bật nút "Dừng chụp"
+        });
 
-            if (selectedFile) {
-                sendImageToApi(selectedFile);
-            } else {
-                alert('Vui lòng chọn một ảnh trước.');
-            }
+        // Dừng chụp tự động
+        stopAutoCapture.addEventListener('click', () => {
+            clearInterval(intervalId);  // Dừng interval
+            startAutoCapture.disabled = false;  // Bật lại nút "Chụp tự động"
+            stopAutoCapture.disabled = true;  // Vô hiệu hóa nút "Dừng chụp"
         });
     </script>
 </body>
+
 </html>
