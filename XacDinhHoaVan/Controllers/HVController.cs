@@ -189,7 +189,22 @@ public class HVController : ControllerBase
             Cv2.FindContours(thresh, out contours, out hierarchy, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
 
             // Tìm contour lớn nhất (giả sử đó là vật chủ)
-            Point[] largestContour = contours.OrderByDescending(c => Cv2.ContourArea(c)).FirstOrDefault();
+            Point[] largestContour = null;
+            double maxArea = 0;
+
+            foreach (var contour in contours)
+            {
+                // Đảm bảo rằng contour không null và có ít nhất 3 điểm
+                if (contour.Length >= 3)
+                {
+                    double contourArea = Cv2.ContourArea(contour); // Đổi tên biến
+                    if (contourArea > maxArea)
+                    {
+                        maxArea = contourArea;
+                        largestContour = contour;
+                    }
+                }
+            }
 
             if (largestContour == null)
                 return BadRequest("No object detected.");
@@ -200,6 +215,7 @@ public class HVController : ControllerBase
 
             int blackPixelCountInObject = 0; // Đếm pixel đen trong vật chủ
             int blackPixelCountInsideCircle = 0; // Đếm pixel đen trong hình tròn 30%
+            int edgeCountInObject = 0; // Đếm số cạnh bên trong vật thể
 
             // Chuyển tất cả các màu khác trắng sang màu đen, trừ các màu từ trắng đến xám nhạt
             for (int y = 0; y < src.Rows; y++)
@@ -207,26 +223,41 @@ public class HVController : ControllerBase
                 for (int x = 0; x < src.Cols; x++)
                 {
                     Vec3b pixel = src.At<Vec3b>(y, x);
-                    // Kiểm tra xem pixel có nằm trong khoảng từ (150, 150, 150) trở lên hay không
-                    if (pixel.Item0 < 150 || pixel.Item1 < 150 || pixel.Item2 < 150)
+                    if (pixel.Item0 > 150 && pixel.Item1 > 150 && pixel.Item2 > 150)
                     {
-                        // Nếu không thì đổi màu thành đen
+                        // Giữ nguyên pixel
+                    }
+                    else
+                    {
                         src.Set(y, x, new Vec3b(0, 0, 0));
                     }
                 }
             }
 
+            // Áp dụng Canny để phát hiện cạnh
+            Mat edges = new Mat();
+            Cv2.Canny(gray, edges, 100, 200);
+
+            // Đếm số lượng cạnh trong vật chủ
+            Mat edgeMask = new Mat();
+            Cv2.InRange(edges, new Scalar(0, 0, 0), new Scalar(255, 255, 255), edgeMask);
+            edgeCountInObject = Cv2.CountNonZero(edgeMask & mask); // Đếm các cạnh bên trong contour lớn nhất
+
+            // Erode the mask to shrink the largest contour by 10 pixels
+            Mat erodedMask = new Mat();
+            Cv2.Erode(mask, erodedMask, Cv2.GetStructuringElement(MorphShapes.Rect, new Size(10, 10))); // Use Rect instead of Rectangle
+
             // Đếm số lượng điểm ảnh đen trong vật chủ
             Mat blackMask = new Mat();
             Cv2.InRange(src, new Scalar(0, 0, 0), new Scalar(50, 50, 50), blackMask); // Giới hạn màu để đếm pixel đen
-            blackPixelCountInObject = Cv2.CountNonZero(blackMask & mask); // Chỉ đếm trong vùng contour lớn nhất
+            blackPixelCountInObject = Cv2.CountNonZero(blackMask & erodedMask); // Chỉ đếm trong vùng contour lớn nhất đã co lại
 
             // Vẽ đường viền màu đỏ xung quanh contour lớn nhất
-            Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(0, 0, 255), 2); // Màu đỏ (BGR: 0,0,255)
+            Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(255, 0, 0), 5); // Màu đỏ (BGR: 0,0,255)
 
             // Vẽ một hình tròn lớn bằng 30% kích thước vật chủ
             var rect = Cv2.BoundingRect(largestContour);
-            int radius = (int)(Math.Min(rect.Width, rect.Height) * 0.3 / 2); // Bán kính bằng 30% của vật chủ
+            int radius = (int)(Math.Min(rect.Width, rect.Height) * 0.45 / 2); // Bán kính bằng 30% của vật chủ
             Point center = new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2); // Tọa độ tâm của vật chủ
 
             // Đếm số lượng điểm ảnh đen bên trong hình tròn
@@ -242,13 +273,48 @@ public class HVController : ControllerBase
             // Chuyển ảnh kết quả sang base64
             byte[] resultBytes = src.ToBytes(".png");
             string base64String = Convert.ToBase64String(resultBytes);
+            string loaidia = "";
+
+            // Tính circularity
+            double perimeter = Cv2.ArcLength(largestContour, true);
+            double area = Cv2.ContourArea(largestContour);
+            double circularity = (4 * Math.PI * area) / (perimeter * perimeter);
+
+            // Kiểm tra điều kiện hình tròn
+            bool isCircle = circularity > 0.8; // Circularity gần 1
+
+            // Điều kiện giữ lại của bạn để phân loại 3 loại dĩa
+            if (blackPixelCountInObject < 750)
+            {
+                loaidia = "dĩa trắng";
+            }
+            else if (blackPixelCountInObject - blackPixelCountInsideCircle < 750)
+            {
+                loaidia = "chỉ có tâm";
+            }
+            else if (blackPixelCountInObject > 750 && blackPixelCountInsideCircle < 750)
+            {
+                loaidia = "chỉ có viền";
+            }
+            else
+            {
+                loaidia = "có cả tâm với viền";
+            }
+
+            // Điều kiện mới để phát hiện vật phức tạp (không phải dĩa)
+            if (!isCircle || edgeCountInObject > 90000) // Không phải hình tròn hoặc có quá nhiều cạnh
+            {
+                loaidia = "vật phức tạp, không phải dĩa";
+            }
 
             // Trả về ảnh và số lượng điểm ảnh đen trong vật chủ, và trong hình tròn
             return Ok(new
             {
                 Image = base64String,
                 BlackPixelCountInObject = blackPixelCountInObject,
-                BlackPixelCountInsideCircle = blackPixelCountInsideCircle
+                BlackPixelCountInsideCircle = blackPixelCountInsideCircle,
+                EdgeCountInObject = edgeCountInObject,
+                LoaiDia = loaidia,
             });
         }
         catch (Exception ex)
@@ -256,5 +322,4 @@ public class HVController : ControllerBase
             return StatusCode(500, $"Error processing image: {ex.Message}");
         }
     }
-
 }
