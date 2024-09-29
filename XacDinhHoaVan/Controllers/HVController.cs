@@ -175,18 +175,21 @@ public class HVController : ControllerBase
 
             Mat src = Cv2.ImDecode(fileBytes, ImreadModes.Color);
 
-            // Chuyển đổi sang ảnh xám
+            // Chuyển đổi sang ảnh xám (ảnh đen trắng)
             Mat gray = new Mat();
             Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
 
-            // Áp dụng threshold để tách nền
-            Mat thresh = new Mat();
-            Cv2.Threshold(gray, thresh, 0, 255, ThresholdTypes.Binary | ThresholdTypes.Otsu);
+            // Chuyển đổi ảnh xám sang ảnh trắng đen (sử dụng threshold)
+            Mat binary = new Mat();
+            Cv2.Threshold(gray, binary, 128, 255, ThresholdTypes.Binary);
+
+            // Sử dụng ảnh `binary` để xử lý thay cho `src`
+            src = binary;
 
             // Tìm contour của đối tượng đĩa
             Point[][] contours;
             HierarchyIndex[] hierarchy;
-            Cv2.FindContours(thresh, out contours, out hierarchy, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+            Cv2.FindContours(binary, out contours, out hierarchy, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
 
             // Tìm contour lớn nhất (giả sử đó là vật chủ)
             Point[] largestContour = null;
@@ -212,47 +215,22 @@ public class HVController : ControllerBase
             int blackPixelCountInObject = 0; // Đếm pixel đen trong vật chủ
             int blackPixelCountInsideCircle = 0; // Đếm pixel đen trong hình tròn 30%
 
-            // Chuyển tất cả các màu khác trắng sang màu đen, trừ các màu từ trắng đến xám nhạt
-            for (int y = 0; y < src.Rows; y++)
-            {
-                for (int x = 0; x < src.Cols; x++)
-                {
-                    Vec3b pixel = src.At<Vec3b>(y, x);
-                    // Kiểm tra xem pixel có nằm trong khoảng từ (150, 150, 150) trở lên hay không
-                    if (pixel.Item0 > 150 && pixel.Item1 > 150 && pixel.Item2 > 150)
-                    {
-                        // Nếu không thì đổi màu thành đen
-
-                    }
-                    else
-                    {
-                        src.Set(y, x, new Vec3b(0, 0, 0));
-                    }
-                }
-            }
-
-            /// Tạo một mask để xác định vùng contour lớn nhất
-            //Mat mask = Mat.Zeros(src.Size(), MatType.CV_8UC1);
-            Cv2.DrawContours(mask, new[] { largestContour }, -1, Scalar.White, -1);
-
-            // Erode the mask to shrink the largest contour by 10 pixels
+            // Tạo một mask để xác định vùng contour lớn nhất
             Mat erodedMask = new Mat();
-            Cv2.Erode(mask, erodedMask, Cv2.GetStructuringElement(MorphShapes.Rect, new Size(10, 10))); // Use Rect instead of Rectangle
+            Cv2.Erode(mask, erodedMask, Cv2.GetStructuringElement(MorphShapes.Rect, new Size(10, 10)));
 
             // Đếm số lượng điểm ảnh đen trong vật chủ
             Mat blackMask = new Mat();
-            Cv2.InRange(src, new Scalar(0, 0, 0), new Scalar(50, 50, 50), blackMask); // Giới hạn màu để đếm pixel đen
-            blackPixelCountInObject = Cv2.CountNonZero(blackMask & erodedMask); // Chỉ đếm trong vùng contour lớn nhất đã co lại
+            Cv2.InRange(src, new Scalar(0), new Scalar(50), blackMask); // Giới hạn màu để đếm pixel đen
+            blackPixelCountInObject = Cv2.CountNonZero(blackMask & erodedMask);
 
-
-            //Cv2.DrawContours(src, contours, -1, new Scalar(0, 255, 255), 2);
             // Vẽ đường viền màu đỏ xung quanh contour lớn nhất
-            Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(255, 0, 0), 5); // Màu đỏ (BGR: 0,0,255)
+            Cv2.DrawContours(src, new[] { largestContour }, -1, new Scalar(0, 0, 255), 5);
 
             // Vẽ một hình tròn lớn bằng 30% kích thước vật chủ
             var rect = Cv2.BoundingRect(largestContour);
-            int radius = (int)(Math.Min(rect.Width, rect.Height) * 0.45 / 2); // Bán kính bằng 30% của vật chủ
-            Point center = new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2); // Tọa độ tâm của vật chủ
+            int radius = (int)(Math.Min(rect.Width, rect.Height) * 0.45 / 2);
+            Point center = new Point(rect.X + rect.Width / 2, rect.Y + rect.Height / 2);
 
             // Đếm số lượng điểm ảnh đen bên trong hình tròn
             Mat circleMask = Mat.Zeros(src.Size(), MatType.CV_8UC1);
@@ -262,17 +240,18 @@ public class HVController : ControllerBase
             blackPixelCountInsideCircle = Cv2.CountNonZero(blackMask & circleMask);
 
             // Vẽ viền xung quanh hình tròn nơi đếm số pixel đen
-            Cv2.Circle(src, center, radius, new Scalar(255, 0, 0), 2); // Viền màu xanh dương (BGR: 255, 0, 0)
+            Cv2.Circle(src, center, radius, new Scalar(0, 0, 255), 2);
 
             // Chuyển ảnh kết quả sang base64
             byte[] resultBytes = src.ToBytes(".png");
             string base64String = Convert.ToBase64String(resultBytes);
             string loaidia = "";
-            if(blackPixelCountInObject < 750)
+
+            if (blackPixelCountInObject < 750)
             {
                 loaidia = "dĩa trắng";
             }
-            else if(blackPixelCountInObject - blackPixelCountInsideCircle < 750)
+            else if (blackPixelCountInObject - blackPixelCountInsideCircle < 750)
             {
                 loaidia = "chỉ có tâm";
             }
@@ -285,8 +264,6 @@ public class HVController : ControllerBase
                 loaidia = "có cả tâm với viền";
             }
 
-
-         
             // Trả về ảnh và số lượng điểm ảnh đen trong vật chủ, và trong hình tròn
             return Ok(new
             {
@@ -301,5 +278,6 @@ public class HVController : ControllerBase
             return StatusCode(500, $"Error processing image: {ex.Message}");
         }
     }
+
 
 }
